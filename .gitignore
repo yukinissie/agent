@@ -1,0 +1,4 @@
+# Clojure static analysis
+.clj-kondo/.cache/*
+
+.lsp/.cache/*

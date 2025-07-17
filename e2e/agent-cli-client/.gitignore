@@ -115,3 +115,9 @@ fabric.properties
 
 # JVM crash logs
 hs_err_pid*
+
+# Gauge generated files
+bin/
+gauge_bin/
+logs/
+reports/
