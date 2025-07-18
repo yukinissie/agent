@@ -1,0 +1,77 @@
+name: Build Agent API
+
+on:
+  push:
+    paths:
+      - 'agent-api/**'
+      - '.github/workflows/build-agent-api.yml'
+  pull_request:
+    paths:
+      - 'agent-api/**'
+      - '.github/workflows/build-agent-api.yml'
+
+env:
+  AWS_REGION: us-west-2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Leiningen dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('agent-api/project.clj') }}
+
+      - name: Install Leiningen
+        run: |
+          wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein
+          chmod +x lein
+          sudo mv lein /usr/local/bin/
+
+      - name: Run tests
+        run: |
+          cd agent-api
+          lein test
+
+      - name: Build uberjar
+        run: |
+          cd agent-api
+          lein uberjar
+
+      - name: Configure AWS credentials
+        if: github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: github.ref == 'refs/heads/main'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::8}
+          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/agent/agent-api:$IMAGE_TAG
+          
+          docker build -t $IMAGE_URI ./agent-api
+          docker push $IMAGE_URI
+          
+          echo "Built and pushed: $IMAGE_URI"

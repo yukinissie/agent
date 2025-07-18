@@ -1,0 +1,111 @@
+name: Build and Deploy to AWS EKS
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-west-2
+  EKS_CLUSTER_NAME: agent-prod
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    outputs:
+      example-api-image: ${{ steps.build-example-api.outputs.image }}
+      agent-api-image: ${{ steps.build-agent-api.outputs.image }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push example-api
+        id: build-example-api
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::8}
+          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/agent/example-api:$IMAGE_TAG
+          
+          docker build -t $IMAGE_URI ./example-api
+          docker push $IMAGE_URI
+          
+          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Build and push agent-api
+        id: build-agent-api
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::8}
+          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/agent/agent-api:$IMAGE_TAG
+          
+          docker build -t $IMAGE_URI ./agent-api
+          docker push $IMAGE_URI
+          
+          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.12.0'
+
+      - name: Deploy example-api
+        run: |
+          helm upgrade --install example-api ./agent-infra/local/example-api/helm \
+            --values ./agent-infra/aws/k8s/example-api/helm/values-prod.yaml \
+            --set image.repository=${{ needs.build.outputs.example-api-image }} \
+            --set image.tag="" \
+            --namespace default \
+            --wait
+
+      - name: Deploy agent-api
+        run: |
+          helm upgrade --install agent-api ./agent-infra/local/agent-api/helm \
+            --values ./agent-infra/aws/k8s/agent-api/helm/values-prod.yaml \
+            --set image.repository=${{ needs.build.outputs.agent-api-image }} \
+            --set image.tag="" \
+            --namespace default \
+            --wait
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -l app.kubernetes.io/name=example-api
+          kubectl get pods -l app.kubernetes.io/name=agent-api
+          kubectl get ingress
