@@ -2,3 +2,6 @@
 .clj-kondo/.cache/*
 
 .lsp/.cache/*
+
+# Claude Code
+.claude/
