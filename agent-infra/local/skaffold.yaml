@@ -1,0 +1,72 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: agent-local
+
+build:
+  local:
+    push: false
+  artifacts:
+    - image: example-api
+      context: ../../example-api
+      docker:
+        dockerfile: Dockerfile
+    - image: agent-api
+      context: ../../agent-api
+      docker:
+        dockerfile: Dockerfile
+
+deploy:
+  helm:
+    releases:
+      - name: example-api
+        chartPath: ./example-api/helm
+        valuesFiles:
+          - ./example-api/helm/values.yaml
+        setValues:
+          image.tag: example-api
+      - name: agent-api
+        chartPath: ./agent-api/helm
+        valuesFiles:
+          - ./agent-api/helm/values.yaml
+        setValues:
+          image.tag: agent-api
+
+profiles:
+  - name: example-api
+    build:
+      local:
+        push: false
+      artifacts:
+        - image: example-api
+          context: ../../example-api
+          docker:
+            dockerfile: Dockerfile
+    deploy:
+      helm:
+        releases:
+          - name: example-api
+            chartPath: ./example-api/helm
+            valuesFiles:
+              - ./example-api/helm/values.yaml
+            setValues:
+              image.tag: example-api
+
+  - name: agent-api
+    build:
+      local:
+        push: false
+      artifacts:
+        - image: agent-api
+          context: ../../agent-api
+          docker:
+            dockerfile: Dockerfile
+    deploy:
+      helm:
+        releases:
+          - name: agent-api
+            chartPath: ./agent-api/helm
+            valuesFiles:
+              - ./agent-api/helm/values.yaml
+            setValues:
+              image.tag: agent-api
