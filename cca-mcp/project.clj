@@ -1,28 +1,16 @@
 (defproject cca-mcp "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
-  :min-lein-version "2.0.0"
-  :dependencies [[org.clojure/clojure "1.10.3"]
-                 [duct/core "0.8.0"]
-                 [duct/module.ataraxy "0.3.0"]
-                 [duct/module.logging "0.5.0"]
-                 [duct/module.web "0.7.3"]
-                 [io.modelcontextprotocol.sdk/mcp "0.10.0"]
-                 [metosin/jsonista "0.3.7"]]
-  :plugins [[duct/lein-duct "0.12.3"]]
-  :main ^:skip-aot cca-mcp.main
-  :resource-paths ["resources" "target/resources"]
-  :prep-tasks     ["javac" "compile" ["run" ":duct/compiler"]]
-  :middleware     [lein-duct.plugin/middleware]
-  :profiles
-  {:dev  [:project/dev :profiles/dev]
-   :repl {:prep-tasks   ^:replace ["javac" "compile"]
-          :repl-options {:init-ns user}}
-   :uberjar {:aot :all} 
-   :profiles/dev {}
-   :project/dev  {:source-paths   ["dev/src"]
-                  :resource-paths ["dev/resources"]
-                  :dependencies   [[integrant/repl "0.3.2"]
-                                   [hawk "0.2.11"]
-                                   [eftest "0.5.9"]
-                                   [kerodon "0.9.1"]]}})
+  :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
+            :url "https://www.eclipse.org/legal/epl-2.0/"}
+  :dependencies [
+                 [org.clojure/clojure "1.11.1"]
+                 [ring/ring-core "1.10.0"]
+                 [ring/ring-jetty-adapter "1.10.0"]
+                 [ring/ring-json "0.5.1"]
+                 [cheshire "5.12.0"]
+                 [org.slf4j/slf4j-simple "2.0.9"]]
+  :main ^:skip-aot cca-mcp.core
+  :target-path "target/%s"
+  :profiles {:uberjar {:aot :all
+                       :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})

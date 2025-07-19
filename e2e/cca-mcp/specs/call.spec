@@ -1,15 +1,6 @@
-# 歓声を上げる
+# method: tool/call
 
 ## ユーザーはテストが通過すると Agent からの歓声を受けることができる
-tags: wip
-
-* パス"/mcp"に
-* メソッド"GET"で
-* メディアタイプ"application/json"で
-* リクエストを送る
-* レスポンスのボディが
-* JSONのパス"$.result.content[0].text"に対応する値が
-* 文字列の"うをおぉぉぉぉぉぉおおおっ！！！"である
-* レスポンスのヘッダーが
-* メディアタイプ"application/json"で
-* 存在している
+* URL"/"にボディ<file:fixtures/call/body.json>で、POSTリクエストを送る
+* レスポンスステータスコードが"200"である
+* レスポンスのJSONの"$.result.content[0].text"が文字列の"うをおぉぉぉぉぉぉおおおっ！！！"である

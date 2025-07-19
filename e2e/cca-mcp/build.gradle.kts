@@ -16,6 +16,14 @@ kotlin {
     jvmToolchain(21)
 }
 
+sourceSets {
+    test {
+        resources {
+            srcDir("fixtures")
+        }
+    }
+}
+
 repositories {
     mavenCentral()
 }

@@ -7,7 +7,7 @@ class ExecutionHook {
   @BeforeSuite
   fun beforeSuite() {
     playtest2 {
-      listOf(http(URI("http://localhost:3000").toURL()))
+      listOf(http(URI("http://localhost:4000").toURL()))
     }
   }
 }
