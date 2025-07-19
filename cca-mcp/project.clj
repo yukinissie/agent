@@ -6,7 +6,8 @@
                  [duct/core "0.8.0"]
                  [duct/module.ataraxy "0.3.0"]
                  [duct/module.logging "0.5.0"]
-                 [duct/module.web "0.7.3"]]
+                 [duct/module.web "0.7.3"]
+                 [io.modelcontextprotocol.sdk/mcp "0.10.0"]]
   :plugins [[duct/lein-duct "0.12.3"]]
   :main ^:skip-aot cca-mcp.main
   :resource-paths ["resources" "target/resources"]
@@ -16,7 +17,7 @@
   {:dev  [:project/dev :profiles/dev]
    :repl {:prep-tasks   ^:replace ["javac" "compile"]
           :repl-options {:init-ns user}}
-   :uberjar {:aot :all}
+   :uberjar {:aot :all} 
    :profiles/dev {}
    :project/dev  {:source-paths   ["dev/src"]
                   :resource-paths ["dev/resources"]
