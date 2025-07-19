@@ -7,7 +7,8 @@
                  [duct/module.ataraxy "0.3.0"]
                  [duct/module.logging "0.5.0"]
                  [duct/module.web "0.7.3"]
-                 [io.modelcontextprotocol.sdk/mcp "0.10.0"]]
+                 [io.modelcontextprotocol.sdk/mcp "0.10.0"]
+                 [metosin/jsonista "0.3.7"]]
   :plugins [[duct/lein-duct "0.12.3"]]
   :main ^:skip-aot cca-mcp.main
   :resource-paths ["resources" "target/resources"]
