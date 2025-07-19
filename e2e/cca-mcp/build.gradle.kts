@@ -23,6 +23,8 @@ repositories {
 dependencies {
     implementation("com.thoughtworks.gauge:gauge-java:0.12.0")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+    implementation("com.uzabase.playtest2:playtest2:0.0.9")
+    implementation("com.uzabase.playtest2:playtest-http:0.0.9")
     testImplementation("org.assertj:assertj-core:3.27.3")
 }
 
