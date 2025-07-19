@@ -4,6 +4,12 @@ variable "project_name" {
   default     = "agent"
 }
 
+variable "aws_account_id" {
+  description = "AWS Account ID"
+  type        = string
+  default     = ""
+}
+
 variable "environment" {
   description = "Environment name"
   type        = string
@@ -68,6 +74,12 @@ variable "enable_irsa" {
   description = "Enable IAM Roles for Service Accounts"
   type        = bool
   default     = true
+}
+
+variable "cluster_name" {
+  description = "EKS cluster name override"
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

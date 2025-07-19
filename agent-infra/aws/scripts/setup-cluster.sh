@@ -2,6 +2,11 @@
 
 set -e
 
+# Load environment variables from .env file
+if [ -f ".env" ]; then
+    source .env
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -20,9 +25,12 @@ echo_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Get cluster name from terraform output
-CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
-AWS_REGION=$(cd terraform && terraform output -raw aws_region || echo "us-west-2")
+# Get cluster name and region from environment variables or terraform output
+if [ -z "$CLUSTER_NAME" ] || [ -z "$AWS_REGION" ]; then
+    echo_info "Cluster info not found in environment variables, getting from terraform output..."
+    CLUSTER_NAME=${CLUSTER_NAME:-$(cd terraform && terraform output -raw cluster_name)}
+    AWS_REGION=${AWS_REGION:-$(cd terraform && terraform output -raw aws_region || echo "us-west-2")}
+fi
 
 echo_info "Setting up EKS cluster: $CLUSTER_NAME in region: $AWS_REGION"
 

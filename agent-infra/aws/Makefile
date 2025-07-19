@@ -1,5 +1,11 @@
 .PHONY: help init plan apply destroy login setup-cluster install-alb-controller deploy clean
 
+# Load environment variables from .env file
+ifneq (,$(wildcard ./.env))
+include .env
+export
+endif
+
 # Default target
 help:
 	@echo "Available commands:"
@@ -16,15 +22,32 @@ help:
 # Terraform commands
 init:
 	@echo "Initializing Terraform..."
-	cd terraform && terraform init
+	cd terraform && terraform init \
+		-backend-config="bucket=${TERRAFORM_STATE_BUCKET}" \
+		-backend-config="key=${TERRAFORM_STATE_KEY}" \
+		-backend-config="region=${TERRAFORM_STATE_REGION}"
 
 plan:
 	@echo "Planning Terraform changes..."
-	cd terraform && terraform plan
+	cd terraform && terraform plan \
+		-var="project_name=${PROJECT_NAME}" \
+		-var="environment=${ENVIRONMENT}" \
+		-var="aws_region=${AWS_REGION}" \
+		-var="cluster_name=${CLUSTER_NAME}" \
+		-var="node_group_desired_size=${NODE_GROUP_DESIRED_SIZE}" \
+		-var="node_group_max_size=${NODE_GROUP_MAX_SIZE}" \
+		-var="node_group_min_size=${NODE_GROUP_MIN_SIZE}"
 
 apply:
 	@echo "Applying Terraform changes..."
-	cd terraform && terraform apply
+	cd terraform && terraform apply \
+		-var="project_name=${PROJECT_NAME}" \
+		-var="environment=${ENVIRONMENT}" \
+		-var="aws_region=${AWS_REGION}" \
+		-var="cluster_name=${CLUSTER_NAME}" \
+		-var="node_group_desired_size=${NODE_GROUP_DESIRED_SIZE}" \
+		-var="node_group_max_size=${NODE_GROUP_MAX_SIZE}" \
+		-var="node_group_min_size=${NODE_GROUP_MIN_SIZE}"
 
 destroy:
 	@echo "Destroying infrastructure..."
@@ -33,7 +56,7 @@ destroy:
 # AWS/EKS commands
 login:
 	@echo "Logging into AWS ECR..."
-	aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $$(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-west-2.amazonaws.com
+	aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
 setup-cluster: apply
 	@echo "Setting up EKS cluster..."

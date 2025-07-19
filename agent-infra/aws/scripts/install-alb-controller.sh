@@ -2,6 +2,11 @@
 
 set -e
 
+# Load environment variables from .env file
+if [ -f ".env" ]; then
+    source .env
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -20,12 +25,12 @@ echo_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Get values from terraform output
-CLUSTER_NAME=$(cd terraform && terraform output -raw cluster_name)
-VPC_ID=$(cd terraform && terraform output -raw vpc_id)
-AWS_REGION=$(cd terraform && terraform output -raw aws_region || echo "us-west-2")
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-ROLE_ARN=$(cd terraform && terraform output -raw load_balancer_controller_role_arn)
+# Get values from environment variables or terraform output
+CLUSTER_NAME=${CLUSTER_NAME:-$(cd terraform && terraform output -raw cluster_name)}
+VPC_ID=${VPC_ID:-$(cd terraform && terraform output -raw vpc_id)}
+AWS_REGION=${AWS_REGION:-$(cd terraform && terraform output -raw aws_region || echo "us-west-2")}
+ACCOUNT_ID=${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}
+ROLE_ARN=${ROLE_ARN:-$(cd terraform && terraform output -raw load_balancer_controller_role_arn)}
 
 echo_info "Installing AWS Load Balancer Controller..."
 echo_info "Cluster: $CLUSTER_NAME"
@@ -37,7 +42,7 @@ echo_info "Role ARN: $ROLE_ARN"
 echo_info "Creating ALB controller manifest..."
 cp k8s/ingress/alb-ingress-controller.yaml /tmp/alb-controller.yaml
 
-# Replace placeholders
+# Replace placeholders  
 sed -i "s/ACCOUNT_ID/$ACCOUNT_ID/g" /tmp/alb-controller.yaml
 sed -i "s/VPC_ID/$VPC_ID/g" /tmp/alb-controller.yaml
 sed -i "s/agent-prod/$CLUSTER_NAME/g" /tmp/alb-controller.yaml

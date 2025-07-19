@@ -2,6 +2,10 @@
 
 このディレクトリには、agentシステムをAWS EKSにデプロイするためのInfrastructure as Code (IaC)が含まれています。
 
+## 🚀 環境変数による簡単設定
+
+このプロジェクトは環境変数ベースの設定システムを使用して、簡単にデプロイできます。設定は`.env`ファイルで一元管理されます。
+
 ## 前提条件
 
 - 適切な権限で設定されたAWS CLI
@@ -9,7 +13,7 @@
 - kubectl
 - Helm >= 3.12
 - Docker
-- GitHub ActionsのOIDCが設定されたGitHubリポジトリ
+- GitHub ActionsのOIDCが設定されたGitHubリポジトリ（オプション）
 
 ## 必要なAWS権限
 
@@ -20,36 +24,55 @@
 - IAMロールとポリシー管理
 - ノードグループ用のEC2インスタンス
 
-## クイックスタート
+## 🏃‍♂️ クイックスタート
 
-### 1. Terraformバックエンドの設定
+### 1. 環境設定ファイルの作成
 
-`terraform/versions.tf`を編集してS3バックエンドを設定します：
+`.env.example`をコピーして`.env`を作成し、あなたの設定で更新：
 
-```hcl
-backend "s3" {
-  bucket = "your-terraform-state-bucket"
-  key    = "agent/terraform.tfstate"
-  region = "us-west-2"
-}
+```bash
+cp .env.example .env
 ```
 
-### 2. 変数の設定
+`.env`ファイルを編集して以下の値を設定：
 
-`terraform/terraform.tfvars`を作成：
+```bash
+# AWS設定
+AWS_REGION=us-west-2
+AWS_ACCOUNT_ID=123456789012  # あなたのAWSアカウントID
 
-```hcl
-project_name = "agent"
-environment = "prod"
-aws_region = "us-west-2"
+# プロジェクト設定  
+PROJECT_NAME=agent
+ENVIRONMENT=prod
 
-# オプション：デフォルト値の上書き
-vpc_cidr = "10.0.0.0/16"
-node_group_desired_size = 3
-node_group_max_size = 10
+# ドメイン設定
+EXAMPLE_API_DOMAIN=example-api.yourdomain.com  # あなたのドメイン
+AGENT_API_DOMAIN=agent-api.yourdomain.com      # あなたのドメイン
+
+# Terraformバックエンド設定
+TERRAFORM_STATE_BUCKET=your-terraform-state-bucket  # S3バケット名
+TERRAFORM_STATE_KEY=agent/terraform.tfstate
+TERRAFORM_STATE_REGION=us-west-2
+
+# EKS設定
+CLUSTER_NAME=agent-prod
+NODE_GROUP_DESIRED_SIZE=3
+NODE_GROUP_MAX_SIZE=10
+NODE_GROUP_MIN_SIZE=1
+```
+
+### 2. S3バケットの作成
+
+Terraformの状態ファイル用のS3バケットを作成：
+
+```bash
+aws s3 mb s3://your-terraform-state-bucket --region us-west-2
+aws s3api put-bucket-versioning --bucket your-terraform-state-bucket --versioning-configuration Status=Enabled
 ```
 
 ### 3. インフラストラクチャのデプロイ
+
+すべての設定が`.env`ファイルから自動的に読み込まれます：
 
 ```bash
 # 初期化とデプロイ
@@ -86,19 +109,48 @@ aws eks describe-cluster --name agent-prod --query "cluster.identity.oidc.issuer
 
 - `AWS_ROLE_ARN`: GitHub Actions用のIAMロールのARN
 
-### 3. イメージURLの更新
+### 3. ECR URLの自動更新
 
-ECRリポジトリが作成された後、本番環境のvaluesファイルを更新：
+ECRリポジトリが作成された後、ECR URLを`.env`ファイルに追加（オプション）：
 
 ```bash
-# TerraformアウトプットからECR URLを取得
-terraform output example_api_ecr_repository_url
-terraform output agent_api_ecr_repository_url
-
-# valuesファイルを更新
-# k8s/example-api/helm/values-prod.yaml
-# k8s/agent-api/helm/values-prod.yaml
+# TerraformアウトプットからECR URLを取得して.envに追加
+echo "EXAMPLE_API_ECR_URL=$(cd terraform && terraform output -raw example_api_ecr_repository_url)" >> .env
+echo "AGENT_API_ECR_URL=$(cd terraform && terraform output -raw agent_api_ecr_repository_url)" >> .env
 ```
+
+**注意:** ECR URLが`.env`ファイルに設定されていない場合、デプロイスクリプトが自動的にTerraformアウトプットから取得します。
+
+## 🔧 環境変数設定システム
+
+### 設定ファイルの仕組み
+
+- **`.env.example`**: すべての設定項目のテンプレートとドキュメント
+- **`.env`**: あなたの実際の設定値（Gitで管理されません）
+- **自動読み込み**: すべてのMakefileコマンドとスクリプトが`.env`を自動的に読み込み
+
+### 設定項目の説明
+
+| 変数名 | 説明 | 例 |
+|-------|------|-----|
+| `AWS_REGION` | AWSリージョン | us-west-2 |
+| `AWS_ACCOUNT_ID` | AWSアカウントID | 123456789012 |
+| `PROJECT_NAME` | プロジェクト名 | agent |
+| `ENVIRONMENT` | 環境名 | prod |
+| `CLUSTER_NAME` | EKSクラスター名 | agent-prod |
+| `EXAMPLE_API_DOMAIN` | Example APIのドメイン | example-api.yourdomain.com |
+| `AGENT_API_DOMAIN` | Agent APIのドメイン | agent-api.yourdomain.com |
+| `TERRAFORM_STATE_BUCKET` | Terraform状態用S3バケット | your-terraform-state-bucket |
+| `NODE_GROUP_*_SIZE` | ノードグループのサイズ設定 | 3, 10, 1 |
+
+### Helm Values の自動置換
+
+デプロイ時に、Helm valuesファイル内の以下のプレースホルダーが自動的に置換されます：
+
+- `${EXAMPLE_API_DOMAIN}` → 環境変数の値
+- `${AGENT_API_DOMAIN}` → 環境変数の値  
+- `${EXAMPLE_API_ECR_URL}` → ECRリポジトリURL
+- `${AGENT_API_ECR_URL}` → ECRリポジトリURL
 
 ## アーキテクチャ
 

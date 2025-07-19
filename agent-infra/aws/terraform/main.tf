@@ -9,7 +9,7 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  cluster_name = "${var.project_name}-${var.environment}"
+  cluster_name = var.cluster_name != "" ? var.cluster_name : "${var.project_name}-${var.environment}"
   
   private_subnets = [
     for i, az in var.availability_zones : 

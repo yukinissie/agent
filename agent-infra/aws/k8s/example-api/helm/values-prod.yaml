@@ -1,7 +1,7 @@
 replicaCount: 3
 
 image:
-  repository: REPLACE_WITH_ECR_REPO_URL
+  repository: "${EXAMPLE_API_ECR_URL}"  # Will be replaced by deployment script
   pullPolicy: Always
   tag: "latest"
 
@@ -27,14 +27,14 @@ ingress:
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
   hosts:
-    - host: example-api.yourdomain.com
+    - host: "${EXAMPLE_API_DOMAIN}"  # Will be replaced by deployment script
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: example-api-tls
       hosts:
-        - example-api.yourdomain.com
+        - "${EXAMPLE_API_DOMAIN}"  # Will be replaced by deployment script
 
 resources:
   limits:

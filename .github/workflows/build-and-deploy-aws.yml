@@ -1,5 +1,22 @@
 name: Build and Deploy to AWS EKS
 
+# This workflow uses environment variables for configuration consistency with local deployment.
+# Required GitHub Secrets:
+#   - AWS_ROLE_ARN: IAM role ARN for GitHub Actions OIDC
+#   - AWS_ACCOUNT_ID: Your AWS account ID
+# 
+# Optional GitHub Variables (with defaults):
+#   - AWS_REGION (default: us-west-2)
+#   - PROJECT_NAME (default: agent)
+#   - ENVIRONMENT (default: prod)
+#   - CLUSTER_NAME (default: agent-prod)
+#   - EXAMPLE_API_DOMAIN (default: empty - no ingress)
+#   - AGENT_API_DOMAIN (default: empty - no ingress)
+#
+# Optional GitHub Secrets (auto-detected if not provided):
+#   - EXAMPLE_API_ECR_URL (will use build output if not set)
+#   - AGENT_API_ECR_URL (will use build output if not set)
+
 on:
   push:
     branches: [ main ]
@@ -7,8 +24,16 @@ on:
     branches: [ main ]
 
 env:
-  AWS_REGION: us-west-2
-  EKS_CLUSTER_NAME: agent-prod
+  # Environment variables loaded from GitHub secrets/variables
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'agent' }}
+  ENVIRONMENT: ${{ vars.ENVIRONMENT || 'prod' }}
+  CLUSTER_NAME: ${{ vars.CLUSTER_NAME || 'agent-prod' }}
+  EXAMPLE_API_DOMAIN: ${{ vars.EXAMPLE_API_DOMAIN || '' }}
+  AGENT_API_DOMAIN: ${{ vars.AGENT_API_DOMAIN || '' }}
+  EXAMPLE_API_ECR_URL: ${{ secrets.EXAMPLE_API_ECR_URL || '' }}
+  AGENT_API_ECR_URL: ${{ secrets.AGENT_API_ECR_URL || '' }}
 
 jobs:
   build:
@@ -40,7 +65,7 @@ jobs:
         id: build-example-api
         run: |
           IMAGE_TAG=${GITHUB_SHA::8}
-          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/agent/example-api:$IMAGE_TAG
+          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}/example-api:$IMAGE_TAG
           
           docker build -t $IMAGE_URI ./example-api
           docker push $IMAGE_URI
@@ -51,7 +76,7 @@ jobs:
         id: build-agent-api
         run: |
           IMAGE_TAG=${GITHUB_SHA::8}
-          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/agent/agent-api:$IMAGE_TAG
+          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}/agent-api:$IMAGE_TAG
           
           docker build -t $IMAGE_URI ./agent-api
           docker push $IMAGE_URI
@@ -77,35 +102,104 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Create environment file
+        run: |
+          # Create temporary .env file for consistency with local deployment
+          cat > .env << EOF
+          AWS_REGION=${{ env.AWS_REGION }}
+          AWS_ACCOUNT_ID=${{ env.AWS_ACCOUNT_ID }}
+          PROJECT_NAME=${{ env.PROJECT_NAME }}
+          ENVIRONMENT=${{ env.ENVIRONMENT }}
+          CLUSTER_NAME=${{ env.CLUSTER_NAME }}
+          EXAMPLE_API_DOMAIN=${{ env.EXAMPLE_API_DOMAIN }}
+          AGENT_API_DOMAIN=${{ env.AGENT_API_DOMAIN }}
+          EXAMPLE_API_ECR_URL=${{ env.EXAMPLE_API_ECR_URL }}
+          AGENT_API_ECR_URL=${{ env.AGENT_API_ECR_URL }}
+          EOF
+
+      - name: Validate environment variables
+        run: |
+          # Check required environment variables
+          if [ -z "${{ env.AWS_REGION }}" ]; then
+            echo "Error: AWS_REGION is required"
+            exit 1
+          fi
+          if [ -z "${{ env.CLUSTER_NAME }}" ]; then
+            echo "Error: CLUSTER_NAME is required"
+            exit 1
+          fi
+          echo "Environment validation passed"
+
       - name: Update kubeconfig
         run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.CLUSTER_NAME }}
 
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
           version: '3.12.0'
 
+      - name: Setup deployment environment
+        run: |
+          # Set ECR URLs from build outputs if not provided via environment variables
+          if [ -z "${{ env.EXAMPLE_API_ECR_URL }}" ]; then
+            export EXAMPLE_API_ECR_URL="${{ needs.build.outputs.example-api-image }}"
+            echo "EXAMPLE_API_ECR_URL=$EXAMPLE_API_ECR_URL" >> .env
+          fi
+          
+          if [ -z "${{ env.AGENT_API_ECR_URL }}" ]; then
+            export AGENT_API_ECR_URL="${{ needs.build.outputs.agent-api-image }}"
+            echo "AGENT_API_ECR_URL=$AGENT_API_ECR_URL" >> .env
+          fi
+          
+          # Source the environment file
+          source .env
+          
+          # Create temporary values files with substituted environment variables
+          echo "Creating temporary values files with environment variables..."
+          envsubst < ./agent-infra/aws/k8s/example-api/helm/values-prod.yaml > /tmp/example-api-values.yaml
+          envsubst < ./agent-infra/aws/k8s/agent-api/helm/values-prod.yaml > /tmp/agent-api-values.yaml
+          
+          # Debug: Show what was substituted
+          echo "=== Example API Values ==="
+          cat /tmp/example-api-values.yaml | grep -E "(repository|host)" || true
+          echo "=== Agent API Values ==="
+          cat /tmp/agent-api-values.yaml | grep -E "(repository|host)" || true
+
       - name: Deploy example-api
         run: |
           helm upgrade --install example-api ./agent-infra/local/example-api/helm \
-            --values ./agent-infra/aws/k8s/example-api/helm/values-prod.yaml \
-            --set image.repository=${{ needs.build.outputs.example-api-image }} \
-            --set image.tag="" \
+            --values /tmp/example-api-values.yaml \
             --namespace default \
             --wait
 
       - name: Deploy agent-api
         run: |
           helm upgrade --install agent-api ./agent-infra/local/agent-api/helm \
-            --values ./agent-infra/aws/k8s/agent-api/helm/values-prod.yaml \
-            --set image.repository=${{ needs.build.outputs.agent-api-image }} \
-            --set image.tag="" \
+            --values /tmp/agent-api-values.yaml \
             --namespace default \
             --wait
 
       - name: Verify deployment
         run: |
+          echo "=== Deployment Status ==="
           kubectl get pods -l app.kubernetes.io/name=example-api
           kubectl get pods -l app.kubernetes.io/name=agent-api
+          
+          echo "=== Ingress Information ==="
           kubectl get ingress
+          
+          echo "=== Service Information ==="
+          kubectl get svc
+          
+          echo "=== Waiting for deployments to be ready ==="
+          kubectl wait --for=condition=available deployment/example-api --timeout=300s
+          kubectl wait --for=condition=available deployment/agent-api --timeout=300s
+          
+          echo "=== Final Status ==="
+          kubectl get pods -l 'app.kubernetes.io/name in (example-api,agent-api)'
+          
+      - name: Cleanup temporary files
+        if: always()
+        run: |
+          rm -f /tmp/example-api-values.yaml /tmp/agent-api-values.yaml .env

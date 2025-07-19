@@ -7,7 +7,7 @@ metadata:
   name: aws-load-balancer-controller
   namespace: kube-system
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/agent-prod-load-balancer-controller
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/agent-prod-load-balancer-controller  # TODO: Automatically replaced by install-alb-controller.sh script
 ---
 apiVersion: apps/v1
 kind: Deployment
