@@ -18,7 +18,7 @@
 
 (defn handle-initialize [request]
   (let [id (:id request)]
-    (create-jsonrpc-response 
+    (create-jsonrpc-response
      id
      {:protocolVersion "2024-11-05"
       :capabilities server-capabilities
@@ -30,7 +30,7 @@
     (create-jsonrpc-response
      id
      {:tools [{:name "cheer"
-               :description "A tool that cheers on your coding with full enthusiasm"
+               :description "When tests pass, it celebrates with joyful shouts and cheers you on"
                :inputSchema {:type "object"
                             :properties {:message {:type "string"
                                                   :description "Optional custom message"}}}}]}
