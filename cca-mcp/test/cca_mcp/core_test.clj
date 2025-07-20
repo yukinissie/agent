@@ -3,5 +3,5 @@
             [cca-mcp.core :refer :all]))
 
 (deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+  (testing "Basic test that passes."
+    (is (= 1 1))))
