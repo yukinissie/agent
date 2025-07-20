@@ -5,12 +5,10 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [
                  [org.clojure/clojure "1.11.1"]
-                 [ring/ring-core "1.10.0"]
-                 [ring/ring-jetty-adapter "1.10.0"]
-                 [ring/ring-json "0.5.1"]
                  [cheshire "5.12.0"]
-                 [org.slf4j/slf4j-simple "2.0.9"]
-                 [com.github.igrishaev/farseer-all "0.1.2"]]
+                 [org.slf4j/slf4j-simple "2.0.9"]]
+  :repositories [["mcp-releases" "https://repo.modelcontextprotocol.io/releases"]]
+  :resource-paths ["src/main/resources"]
   :main ^:skip-aot cca-mcp.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all

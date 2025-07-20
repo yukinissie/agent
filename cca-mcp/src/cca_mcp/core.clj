@@ -1,93 +1,110 @@
 (ns cca-mcp.core
   (:require
    [cca-mcp.tools.cheer :refer [cheer]]
-   [cca-mcp.specs :as specs]
-   [ring.adapter.jetty :as jetty]
-   [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
-   [ring.util.response :as response]
-   [farseer.handler :as f])
+   [cheshire.core :as json])
   (:gen-class))
 
 (def server-info
   {:name "cca-mcp-server"
    :version "1.0.0"})
 
-(def tools
-  [{:name "cheer"
-    :description "A tool that cheers on your coding with full enthusiasm"}])
+(def server-capabilities
+  {:tools {:listChanged false}})
 
-(defn rpc-initialize
-  [context _]
-  {:protocolVersion "2024-11-05"
-   :capabilities {:tools {:listChanged true}}
-   :serverInfo server-info})
+(defn create-jsonrpc-response [id result error]
+  (cond-> {:jsonrpc "2.0" :id id}
+    result (assoc :result result)
+    error (assoc :error error)))
 
-(defn rpc-tools-list
-  [context _]
-  {:tools tools})
+(defn handle-initialize [request]
+  (let [id (:id request)]
+    (create-jsonrpc-response 
+     id
+     {:protocolVersion "2024-11-05"
+      :capabilities server-capabilities
+      :serverInfo server-info}
+     nil)))
 
-(defn rpc-ping
-  [context _]
-  {})
+(defn handle-tools-list [request]
+  (let [id (:id request)]
+    (create-jsonrpc-response
+     id
+     {:tools [{:name "cheer"
+               :description "A tool that cheers on your coding with full enthusiasm"
+               :inputSchema {:type "object"
+                            :properties {:message {:type "string"
+                                                  :description "Optional custom message"}}}}]}
+     nil)))
 
-(defn rpc-tools-call
-  [context {:keys [name] :as params}]
-  (case name
-    "cheer" (cheer {:params params})
-    (throw (ex-info (str "Tool '" name "' not found")
-                    {:type :method-not-found}))))
+(defn handle-tools-call [request]
+  (let [id (:id request)
+        params (:params request)
+        tool-name (:name params)
+        arguments (:arguments params)]
+    (case tool-name
+      "cheer" (let [result (cheer {:params arguments})]
+                (create-jsonrpc-response id result nil))
+      (create-jsonrpc-response
+       id
+       nil
+       {:code -32601
+        :message "Method not found"
+        :data {:tool tool-name}}))))
 
-(def rpc-config
-  {:rpc/handlers
-   {:initialize
-    {:handler/function #'rpc-initialize
-     :handler/spec-out ::specs/initialize-result}
+(defn handle-ping [request]
+  (create-jsonrpc-response (:id request) {} nil))
 
-    :tools/list
-    {:handler/function #'rpc-tools-list
-     :handler/spec-out ::specs/tools-list-result}
+(defn handle-notifications-initialized [request]
+  nil)
 
-    :ping
-    {:handler/function #'rpc-ping
-     :handler/spec-out ::specs/ping-result}
+(defn dispatch-request [request]
+  (let [method (:method request)]
+    (case method
+      "initialize" (handle-initialize request)
+      "tools/list" (handle-tools-list request)
+      "tools/call" (handle-tools-call request)
+      "ping" (handle-ping request)
+      "notifications/initialized" (handle-notifications-initialized request)
+      (create-jsonrpc-response
+       (:id request)
+       nil
+       {:code -32601
+        :message "Method not found"
+        :data {:method method}}))))
 
-    :tools/call
-    {:handler/function #'rpc-tools-call
-     :handler/spec-in ::specs/tool-call-params
-     :handler/spec-out ::specs/tools-call-result}}})
+(defn process-message [message]
+  (try
+    (let [request (json/parse-string message true)]
+      (dispatch-request request))
+    (catch Exception e
+      (create-jsonrpc-response
+       nil
+       nil
+       {:code -32700
+        :message "Parse error"
+        :data (str (.getMessage e))}))))
 
-(def rpc-handler (f/make-handler rpc-config))
+(defn read-message []
+  (try
+    (read-line)
+    (catch Exception e
+      nil)))
 
-(defn mcp-handler [req]
-  (if (= (:request-method req) :post)
-    (let [request (:body req)
-          response (rpc-handler request)]
-      (-> (response/response response)
-          (response/content-type "application/json")))
-    (-> (response/response {:jsonrpc "2.0"
-                           :id nil
-                           :error {:code -32600
-                                   :message "Only POST method allowed"}})
-        (response/status 405)
-        (response/content-type "application/json"))))
+(defn write-message [response]
+  (when response
+    (println (json/generate-string response))
+    (flush)))
 
-(def app
-  (-> mcp-handler
-      (wrap-json-body
-       {:keywords? true :malformed-response
-        (fn [request]
-          (-> (response/response
-               {:jsonrpc "2.0"
-                :id nil
-                :error {:code -32700
-                        :message "Invalid JSON"}})
-              (response/status 400)
-              (response/content-type "application/json")))})
-      wrap-json-response))
+(defn stdio-loop []
+  (loop []
+    (when-let [message (read-message)]
+      (let [response (process-message message)]
+        (write-message response))
+      (recur))))
 
 (defn -main
-  "Start the HTTP MCP server"
+  "Start the STDIO MCP server"
   [& args]
-  (let [port (Integer/parseInt (or (first args) "4000"))]
-    (println (str "Starting CCA MCP HTTP Server on port " port "..."))
-    (jetty/run-jetty app {:port port :join? true})))
+  (binding [*out* *err*]
+    (println "Starting CCA MCP STDIO Server..."))
+  (stdio-loop))

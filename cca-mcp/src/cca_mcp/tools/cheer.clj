@@ -1,5 +1,9 @@
-(ns cca-mcp.tools.cheer)
+(ns cca-mcp.tools.cheer
+  (:require [clojure.java.shell :as shell]))
 
 (defn cheer [request]
-  {:content [{:type "text"
-              :text "うをおぉぉぉぉぉぉおおおっ！！！"}]})
+  (let [cheerText "うをおぉぉぉぉぉぉおおおっ！！！"]
+    (when (= "Mac OS X" (System/getProperty "os.name"))
+      (shell/sh "say" cheerText))
+    {:content [{:type "text"
+                :text cheerText}]}))

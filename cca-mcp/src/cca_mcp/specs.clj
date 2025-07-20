@@ -39,8 +39,9 @@
 (s/def ::listChanged boolean?)
 (s/def ::tools-capability 
   (s/keys :opt-un [::listChanged]))
+(s/def ::tools-enabled boolean?)
 (s/def ::capabilities 
-  (s/keys :opt-un [::tools]))
+  (s/keys :opt-un [::tools-enabled]))
 
 ;; ===== Tool Specs =====
 (s/def ::tool
@@ -64,7 +65,7 @@
 (s/def ::initialize-result
   (s/keys :req-un [::protocolVersion ::capabilities ::serverInfo]))
 
-;; Tools List  
+;; Tools List
 (s/def ::tools-list-result
   (s/keys :req-un [::tools]))
 
@@ -91,4 +92,4 @@
 
 (s/def ::ping-request
   (s/and ::jsonrpc-request
-         #(= "ping" (:method %)))) 
+         #(= "ping" (:method %))))
