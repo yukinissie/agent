@@ -32,8 +32,8 @@
      {:tools [{:name "cheer"
                :description "When tests pass, it celebrates with joyful shouts and cheers you on"
                :inputSchema {:type "object"
-                            :properties {:message {:type "string"
-                                                  :description "Optional custom message"}}}}]}
+                             :properties {:message {:type "string"
+                                                    :description "Optional custom message"}}}}]}
      nil)))
 
 (defn handle-tools-call [request]
