@@ -1,10 +1,10 @@
 (ns cca-mcp.core
   (:require
    [cca-mcp.tools.cheer :refer [cheer]]
+   [cca-mcp.specs :as specs]
    [ring.adapter.jetty :as jetty]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.util.response :as response]
-   [clojure.spec.alpha :as s]
    [farseer.handler :as f])
   (:gen-class))
 
@@ -15,20 +15,6 @@
 (def tools
   [{:name "cheer"
     :description "A tool that cheers on your coding with full enthusiasm"}])
-
-
-(s/def ::initialize.out
-  (s/keys :req-un [::protocolVersion ::capabilities ::serverInfo]))
-
-(s/def ::tools-list.out
-  (s/keys :req-un [::tools]))
-
-(s/def ::ping.out map?)
-
-(s/def ::tools-call.in
-  (s/keys :req-un [::name]))
-
-(s/def ::tools-call.out map?)
 
 (defn rpc-initialize
   [context _]
@@ -55,20 +41,20 @@
   {:rpc/handlers
    {:initialize
     {:handler/function #'rpc-initialize
-     :handler/spec-out ::initialize.out}
+     :handler/spec-out ::specs/initialize-result}
 
     :tools/list
     {:handler/function #'rpc-tools-list
-     :handler/spec-out ::tools-list.out}
+     :handler/spec-out ::specs/tools-list-result}
 
     :ping
     {:handler/function #'rpc-ping
-     :handler/spec-out ::ping.out}
+     :handler/spec-out ::specs/ping-result}
 
     :tools/call
     {:handler/function #'rpc-tools-call
-     :handler/spec-in ::tools-call.in
-     :handler/spec-out ::tools-call.out}}})
+     :handler/spec-in ::specs/tool-call-params
+     :handler/spec-out ::specs/tools-call-result}}})
 
 (def rpc-handler (f/make-handler rpc-config))
 
