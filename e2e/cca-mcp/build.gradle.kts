@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "2.2.0"
-    id("org.gauge") version "1.8.2"
+    id("org.gauge") version "2.3.0"
     id("java")
 }
 
