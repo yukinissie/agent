@@ -1,6 +1,6 @@
 # Dockerfile for CCA-MCP deployment to Amazon Bedrock AgentCore
 
-FROM openjdk:17-jdk-slim
+FROM openjdk:25-jdk-slim
 
 # Install required packages
 RUN apt-get update && apt-get install -y \
